@@ -76,21 +76,21 @@ defmodule Pride do
   def valid?(nil, _params), do: true
 
   def valid?(string, nil) do
-    with [_prefix, slug] <- String.split(string, "_"),
-         {:ok, _} <- Pride.Base62.UUID.decode_base62_uuid(slug) do
-      true
+    with [_prefix, id] <- String.split(string, "_"),
+         {:ok, uuid} <- Pride.Base62.UUID.decode_base62_uuid(id) do
+      Uniq.UUID.valid?(uuid, version: 7)
     else
       _ -> false
     end
   end
 
   def valid?(string, params) do
-    with {:ok, prefix_from_string, _uuid} <- unfurl_object_id(string, params) do
+    with {:ok, prefix_from_string, uuid} <- unfurl_object_id(string, params) do
       if prefix_from_schema = prefix(params) do
-        prefix_from_string == prefix_from_schema
+        prefix_from_string == prefix_from_schema and Uniq.UUID.valid?(uuid, version: 7)
       else
         # if we don't have a prefix from schema, assume valid if the format is right
-        true
+        Uniq.UUID.valid?(uuid, version: 7)
       end
     else
       _ -> false
@@ -102,10 +102,11 @@ defmodule Pride do
   It receives a loader function in case the parameterized type is also a composite type. In order to load the inner type, the loader must be called with the inner type and the inner value as argument."
   def load(data, loader, params) do
     pride = params[:__pride__]
+    prefix = prefix(params)
 
-    case not is_nil(pride) and Uniq.UUID.load(data, loader, pride) do
+    case not is_nil(pride) and not is_nil(prefix) and Uniq.UUID.load(data, loader, pride) do
       {:ok, nil} -> {:ok, nil}
-      {:ok, uuid} -> {:ok, uuid_to_object_id(uuid, prefix!(params))}
+      {:ok, uuid} -> {:ok, uuid_to_object_id(uuid, prefix)}
       :error -> :error
       false -> :error
     end
@@ -152,17 +153,18 @@ defmodule Pride do
     do: prefix || raise("prefix for relation primary key not found")
 
   defp prefix!(params) do
-    prefix(params) || raise "prefix for relation primary key not found"
+    prefix(params) || raise("prefix for relation primary key not found")
   end
 
   defp prefix(%{primary_key: true, prefix: prefix}), do: prefix
-
   # If we deal with a belongs_to association we need to fetch the prefix from
   # the associations schema module
   defp prefix(%{schema: schema, field: field}) do
     %{related: schema, related_key: field} = schema.__schema__(:association, field)
-    prefix(schema, field) || raise "prefix for relation primary key not found"
+    prefix(schema, field)
   end
+
+  defp prefix(_), do: nil
 
   def prefix(schema, field) when is_atom(schema) do
     case schema.__schema__(:type, field) do
