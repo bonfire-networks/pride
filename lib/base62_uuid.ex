@@ -2,14 +2,16 @@ defmodule Pride.Base62.UUID do
   @doc """
   UUID Base62 encoder/decoder
   """
+  import Untangle, except: [dump: 3]
 
   @base62_uuid_length 22
   @uuid_length 32
+  @str_int 16
 
   def encode_base62_uuid(uuid) do
     uuid
     |> String.replace("-", "")
-    |> String.to_integer(16)
+    |> String.to_integer(@str_int)
     |> Pride.Base62.base62_encode()
     |> String.pad_leading(@base62_uuid_length, "0")
   end
@@ -22,7 +24,7 @@ defmodule Pride.Base62.UUID do
 
   def number_to_uuid(number) do
     number
-    |> Integer.to_string(16)
+    |> Integer.to_string(@str_int)
     |> String.downcase()
     |> String.pad_leading(@uuid_length, "0")
     |> case do
@@ -31,7 +33,7 @@ defmodule Pride.Base62.UUID do
         {:ok, "#{g1}-#{g2}-#{g3}-#{g4}-#{g5}"}
 
       other ->
-        {:error, "got invalid base62 uuid; #{inspect(other)}"}
+        error(other, "got invalid base62 uuid")
     end
   end
 end

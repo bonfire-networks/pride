@@ -2,6 +2,7 @@ defmodule Pride.Base62 do
   @doc """
   Base62 encoder/decoder
   """
+  import Untangle, except: [dump: 3]
 
   @base62_alphabet ~c"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
@@ -38,5 +39,5 @@ defmodule Pride.Base62 do
     defp decode_base62_char(unquote(<<digit>>)), do: {:ok, unquote(idx)}
   end
 
-  defp decode_base62_char(char), do: {:error, "got invalid base62 character; #{inspect(char)}"}
+  defp decode_base62_char(char), do: error(char, "got invalid base62 character")
 end

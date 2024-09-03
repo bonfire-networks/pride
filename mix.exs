@@ -34,6 +34,7 @@ defmodule Pride.MixProject do
 
   defp deps do
     [
+      {:untangle, "~> 0.3"},
       # for UUID support
       {:uniq, "~> 0.6"},
       {:ecto, "~> 3.12"},
