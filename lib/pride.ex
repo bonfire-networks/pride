@@ -89,7 +89,7 @@ defmodule Pride do
 
   def valid?(string, nil) do
     with [_prefix, id] when byte_size(id) == 22 <- String.split(string, "_"),
-         {:ok, uuid} <- Pride.Base62.UUID.decode_base62_uuid(id) |> debug() do
+         {:ok, uuid} <- printable_decode(id) do
       Uniq.UUID.valid?(uuid, version: 7)
     else
       _ -> false
@@ -104,6 +104,19 @@ defmodule Pride do
         # if we don't have a prefix from schema, assume valid if the format is right
         Uniq.UUID.valid?(uuid, version: 7)
       end
+    else
+      _ -> false
+    end
+  end
+
+  def valid_or_uuid(string, params) do
+    with {:ok, prefix_from_string, uuid} <- unfurl_object_id(string, params) do
+      if prefix_from_schema = prefix(params) do
+        prefix_from_string == prefix_from_schema and Uniq.UUID.valid?(uuid, version: 7)
+      else
+        # if we don't have a prefix from schema, assume valid if the format is right
+        Uniq.UUID.valid?(uuid, version: 7)
+      end || uuid
     else
       _ -> false
     end
@@ -152,7 +165,7 @@ defmodule Pride do
 
   defp unfurl_object_id(string, _params) do
     with [prefix, id] when byte_size(id) == 22 <- String.split(string, "_"),
-         {:ok, uuid} <- Pride.Base62.UUID.decode_base62_uuid(id) do
+         {:ok, uuid} <- printable_decode(id) do
       {:ok, prefix, uuid}
     else
       _ -> :error
@@ -160,7 +173,7 @@ defmodule Pride do
   end
 
   defp uuid_to_object_id(uuid, prefix) do
-    "#{prefix}_#{Pride.Base62.UUID.encode_base62_uuid(uuid)}"
+    "#{prefix}_#{printable_encode(uuid)}"
   end
 
   defp prefix!(%{primary_key: true, prefix: prefix}),
@@ -210,4 +223,18 @@ defmodule Pride do
         pride_params
     end
   end
+
+  def printable_encode(uuid) do
+    # Pride.Base62.UUID.encode_base62_uuid(uuid)
+    with {:ok, encoded} <- ExULID.Crockford.encode32(uuid), do: encoded
+    |> debug()
+  end
+
+  def printable_decode(uuid) do
+    # Pride.Base62.UUID.decode_base62_uuid(uuid) 
+    with {:ok, decoded} <- ExULID.Crockford.decode32(uuid), do: decoded
+    |> debug()
+  end
+
+  
 end
