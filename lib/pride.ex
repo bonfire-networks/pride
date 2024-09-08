@@ -225,15 +225,15 @@ defmodule Pride do
   end
 
   def printable_encode(uuid) do
-    # Pride.Base62.UUID.encode_base62_uuid(uuid)
-    with {:ok, encoded} <- ExULID.Crockford.encode32(uuid), do: encoded
-    |> debug()
+    Pride.Base62.UUID.encode_base62_uuid(uuid)
+    # with {:ok, encoded} <- ExULID.Crockford.encode32(uuid), do: encoded
+    # |> debug()
   end
 
   def printable_decode(uuid) do
-    # Pride.Base62.UUID.decode_base62_uuid(uuid) 
-    with {:ok, decoded} <- ExULID.Crockford.decode32(uuid), do: decoded
-    |> debug()
+    Pride.Base62.UUID.decode_base62_uuid(uuid) 
+    # with {:ok, decoded} <- ExULID.Crockford.decode32(uuid), do: decoded
+    # |> debug()
   end
 
   
