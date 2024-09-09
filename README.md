@@ -9,9 +9,17 @@ Originally based on examples by Dan Schultzer at https://danschultzer.com/posts/
 
 ## Installation
 
+If you want to use a Rust implementation of UUIDv7 (powered by https://hexdocs.pm/uuidv7)
 ```elixir
-{:pride, git: "https://github.com/bonfire-networks/pride", branch: "main"}
+{:pride, git: "https://github.com/bonfire-networks/pride", branch: "main"},
+{:uuidv7, "~> 0.2"},
 ```
+Or an Elixir implementation (powered by https://hexdocs.pm/uniq), : 
+```elixir
+{:pride, git: "https://github.com/bonfire-networks/pride", branch: "main"},
+{:uniq, "~> 0.6"},
+```
+and include this in config: `config :pride, use_rust: false`
 
 ## Copyright and License
 

@@ -11,6 +11,8 @@ defmodule Pride do
   use Ecto.ParameterizedType
   import Untangle, except: [dump: 3]
 
+  @rust_disabled Application.compile_env(:pride, :use_rust, true) != true
+
   @impl true
   @doc "Callback to convert the options specified in the field macro into parameters to be used in other callbacks.
   This function is called at compile time, and should raise if invalid values are specified. It is idiomatic that the parameters returned from this are a map. field and schema will be injected into the options automatically."
@@ -51,9 +53,14 @@ defmodule Pride do
     end
   end
 
-  defp init_pride(schema, field) do
-    # TODO: use faster Rust-based https://hex.pm/packages/uuidv7 instead of Uniq?
-    Uniq.UUID.init(schema: schema, field: field, version: 7, default: :raw, dump: :raw)
+  if @rust_disabled do
+    defp init_pride(schema, field) do
+      Uniq.UUID.init(schema: schema, field: field, version: 7, default: :raw, dump: :raw)
+    end
+  else
+    defp init_pride(_schema, _field) do
+      true
+    end
   end
 
   @impl true
@@ -69,17 +76,17 @@ defmodule Pride do
       {:ok, data}
     else
       :error ->
-        error("Not a valid Prefixed UUIDv7: #{inspect(data)}", params)
+        error(data, "Not a valid Prefixed UUIDv7")
         {:error, message: "Not a valid Prefixed UUIDv7"}
 
       {_, nil} ->
-        warn("prefix for primary key not found: #{inspect(data)}", params)
+        warn(params, "prefix for primary key not found: #{inspect(data)}")
         # {:error, message: "prefix for primary key not found"}
         #  we pretend all is well here so we can cast across assocs and mixins...
         {:ok, data}
 
       _ ->
-        error("The ID's object type does not match the schema type: #{inspect(data)}", params)
+        error(params, "The ID's object type does not match the schema type: #{inspect(data)}")
         {:error, message: "The ID's object type does not match the schema type"}
     end
   end
@@ -90,7 +97,7 @@ defmodule Pride do
   def valid?(string, nil) do
     with [_prefix, id] when byte_size(id) == 22 <- String.split(string, "_"),
          {:ok, uuid} <- printable_decode(id) do
-      Uniq.UUID.valid?(uuid, version: 7)
+      check_valid?(uuid)
     else
       _ -> false
     end
@@ -99,10 +106,10 @@ defmodule Pride do
   def valid?(string, params) do
     with {:ok, prefix_from_string, uuid} <- unfurl_object_id(string, params) do
       if prefix_from_schema = prefix(params) do
-        prefix_from_string == prefix_from_schema and Uniq.UUID.valid?(uuid, version: 7)
+        prefix_from_string == prefix_from_schema and check_valid?(uuid)
       else
         # if we don't have a prefix from schema, assume valid if the format is right
-        Uniq.UUID.valid?(uuid, version: 7)
+        check_valid?(uuid)
       end
     else
       _ -> false
@@ -112,13 +119,23 @@ defmodule Pride do
   def valid_or_uuid(string, params) do
     with {:ok, prefix_from_string, uuid} <- unfurl_object_id(string, params) do
       if prefix_from_schema = prefix(params) do
-        prefix_from_string == prefix_from_schema and Uniq.UUID.valid?(uuid, version: 7)
+        prefix_from_string == prefix_from_schema and check_valid?(uuid)
       else
         # if we don't have a prefix from schema, assume valid if the format is right
-        Uniq.UUID.valid?(uuid, version: 7)
+        check_valid?(uuid)
       end || uuid
     else
       _ -> false
+    end
+  end
+
+  if @rust_disabled do
+    defp check_valid?(uuid) do
+      Uniq.UUID.valid?(uuid, version: 7)
+    end
+  else
+    defp check_valid?(uuid) do
+      UUIDv7.cast(uuid) != :error
     end
   end
 
@@ -126,14 +143,26 @@ defmodule Pride do
   @doc "Loads the given term into a ParameterizedType.
   It receives a loader function in case the parameterized type is also a composite type. In order to load the inner type, the loader must be called with the inner type and the inner value as argument."
   def load(data, loader, params) do
-    pride = pride(params)
     prefix = prefix(params)
 
-    case not is_nil(pride) and not is_nil(prefix) and Uniq.UUID.load(data, loader, pride) do
+    case not is_nil(prefix) and do_load(data, loader, params) do
       {:ok, nil} -> {:ok, nil}
       {:ok, uuid} -> {:ok, uuid_to_object_id(uuid, prefix)}
       :error -> :error
       false -> :error
+    end
+  end
+
+  defp do_load(nil, _loader, _params), do: {:ok, nil}
+
+  if @rust_disabled do
+    defp do_load(data, loader, params) do
+      Uniq.UUID.load(data, loader, pride!(params))
+    end
+  else
+    defp do_load(data, _loader, _params) do
+      UUIDv7.load(data)
+      #  TODO: support loader?
     end
   end
 
@@ -143,25 +172,58 @@ defmodule Pride do
   def dump(nil, _, _), do: {:ok, nil}
 
   def dump(value, dumper, params) do
-    case unfurl_object_id(value, params) do
-      {:ok, _prefix, uuid} -> Uniq.UUID.dump(uuid, dumper, pride(params) || %{dump: :raw})
-      :error -> :error
+    case unfurl_object_id(value, params) |> debug() do
+      {:ok, _prefix, uuid} ->
+        if @rust_disabled do
+          Uniq.UUID.dump(uuid, dumper, pride(params) || %{dump: :raw})
+        else
+          #  TODO: support dumper?
+          UUIDv7.dump(uuid)
+        end
+
+      :error ->
+        :error
     end
   end
 
   @impl true
   @doc "Generates a loaded version of the data."
   def autogenerate(params) do
-    uuid_to_object_id(Uniq.UUID.autogenerate(pride!(params)), prefix!(params))
+    generate_uuid(params)
+    |> uuid_to_object_id(prefix!(params))
+  end
+
+  if @rust_disabled do
+    defp generate_uuid(params) do
+      Uniq.UUID.autogenerate(pride!(params))
+    end
+  else
+    defp generate_uuid(_params) do
+      UUIDv7.generate()
+    end
+
+    def generate(ms, params) when is_integer(ms) do
+      UUIDv7.generate(ms)
+      |> uuid_to_object_id(prefix!(params))
+    end
   end
 
   @impl true
-  def embed_as(format, params), do: Uniq.UUID.embed_as(format, pride!(params))
+  if @rust_disabled do
+    def embed_as(format, params), do: Uniq.UUID.embed_as(format, pride!(params))
+  else
+    def embed_as(format, _params), do: UUIDv7.embed_as(format)
+  end
 
   @impl true
   def equal?(a, b, params) when is_nil(a) and not is_nil(b), do: false
   def equal?(a, b, params) when not is_nil(a) and is_nil(b), do: false
-  def equal?(a, b, params), do: Uniq.UUID.equal?(a, b, pride!(params))
+
+  if @rust_disabled do
+    def equal?(a, b, params), do: Uniq.UUID.equal?(a, b, pride!(params))
+  else
+    def equal?(a, b, _params), do: UUIDv7.equal?(a, b)
+  end
 
   defp unfurl_object_id(string, _params) do
     with [prefix, id] when byte_size(id) == 22 <- String.split(string, "_"),
@@ -231,10 +293,8 @@ defmodule Pride do
   end
 
   def printable_decode(uuid) do
-    Pride.Base62.UUID.decode_base62_uuid(uuid) 
+    Pride.Base62.UUID.decode_base62_uuid(uuid)
     # with {:ok, decoded} <- ExULID.Crockford.decode32(uuid), do: decoded
     # |> debug()
   end
-
-  
 end
