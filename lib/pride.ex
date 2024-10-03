@@ -94,7 +94,7 @@ defmodule Pride do
   def valid?(string, params \\ nil)
   def valid?(nil, _params), do: true
 
-  def valid?(string, nil) do
+  def valid?(string, nil) when is_binary(string) do
     with [_prefix, id] when byte_size(id) == 22 <- String.split(string, "_"),
          {:ok, uuid} <- printable_decode(id) do
       check_valid?(uuid)
@@ -103,7 +103,7 @@ defmodule Pride do
     end
   end
 
-  def valid?(string, params) do
+  def valid?(string, params) when is_binary(string) do
     with {:ok, prefix_from_string, uuid} <- unfurl_object_id(string, params) do
       if prefix_from_schema = prefix(params) do
         prefix_from_string == prefix_from_schema and check_valid?(uuid)
@@ -115,8 +115,10 @@ defmodule Pride do
       _ -> false
     end
   end
+  
+  def valid?(_, _), do: false
 
-  def valid_or_uuid(string, params) do
+  def valid_or_uuid(string, params) when is_binary(string) do
     with {:ok, prefix_from_string, uuid} <- unfurl_object_id(string, params) do
       if prefix_from_schema = prefix(params) do
         prefix_from_string == prefix_from_schema and check_valid?(uuid)
@@ -225,7 +227,7 @@ defmodule Pride do
     def equal?(a, b, _params), do: UUIDv7.equal?(a, b)
   end
 
-  defp unfurl_object_id(string, _params) do
+  defp unfurl_object_id(string, _params) when is_binary(string) do
     with [prefix, id] when byte_size(id) == 22 <- String.split(string, "_"),
          {:ok, uuid} <- printable_decode(id) do
       {:ok, prefix, uuid}
