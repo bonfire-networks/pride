@@ -12,6 +12,7 @@ defmodule Pride do
   import Untangle, except: [dump: 3]
 
   @rust_disabled Application.compile_env(:pride, :use_rust, true) != true
+  # FIXME: uuidv7 1.0+ no longer uses rust (not sure what makes it unique vs uniq now)
 
   @impl true
   @doc "Callback to convert the options specified in the field macro into parameters to be used in other callbacks.
