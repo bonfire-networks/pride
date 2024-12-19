@@ -219,8 +219,8 @@ defmodule Pride do
   end
 
   @impl true
-  def equal?(a, b, params) when is_nil(a) and not is_nil(b), do: false
-  def equal?(a, b, params) when not is_nil(a) and is_nil(b), do: false
+  def equal?(a, b, _params) when is_nil(a) and not is_nil(b), do: false
+  def equal?(a, b, _params) when not is_nil(a) and is_nil(b), do: false
 
   if @rust_disabled do
     def equal?(a, b, params), do: Uniq.UUID.equal?(a, b, pride!(params))
@@ -278,16 +278,16 @@ defmodule Pride do
     params[:__pride__]
   end
 
-  defp pride!(params) do
-    case params[:__pride__] do
-      nil ->
-        error(params, "expected to find :__pride__ params")
-        raise "schema was not compiled with uuidv7 support"
+  # defp pride!(params) do
+  #   case params[:__pride__] do
+  #     nil ->
+  #       error(params, "expected to find :__pride__ params")
+  #       raise "schema was not compiled with uuidv7 support"
 
-      pride_params ->
-        pride_params
-    end
-  end
+  #     pride_params ->
+  #       pride_params
+  #   end
+  # end
 
   def printable_encode(uuid) do
     Pride.Base62.UUID.encode_base62_uuid(uuid)
