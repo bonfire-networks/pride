@@ -4,7 +4,7 @@ defmodule Pride.MixProject do
   def project do
     [
       app: :pride,
-      version: "0.0.1",
+      version: "0.0.2",
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       description: "Provides a prefixed UUIDv7 data type for Ecto, and related helpers",
