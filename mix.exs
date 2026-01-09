@@ -34,14 +34,14 @@ defmodule Pride.MixProject do
 
   defp deps do
     [
-      {:untangle, "~> 0.3"},
+      {:untangle, "~> 0.4"},
       # for UUID support powered by Rust
       {:uuidv7, "~> 0.2", optional: true},
       # for fallback UUID support
       {:uniq, "~> 0.6", optional: true},
-      {:ecto, "~> 3.12"},
+      {:ecto, "~> 3.13"},
       # you might just want it for in-memory use
-      {:ecto_sql, "~> 3.8", optional: true},
+      {:ecto_sql, "~> 3.13", optional: true},
       {:ex_doc, "~> 0.16", only: :dev, runtime: false}
     ]
   end
